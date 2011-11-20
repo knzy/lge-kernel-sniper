@@ -589,6 +589,40 @@ static /*uint8_t*/uint32_t  Synaptics_Check_Touch_Interrupt_Status()
 		return !pinValue;
 }
 
+#ifndef CONFIG_TOUCHSCREEN_ANDROID_VIRTUALKEYS
+static unsigned int button_map[5] = {KEY_MENU, KEY_HOME, KEY_BACK, KEY_SEARCH, KEY_UNKNOWN};
+#endif
+enum btn_idx {KEYIDX_MENU, KEYIDX_HOME, KEYIDX_BACK, KEYIDX_SEARCH};
+
+#ifdef CONFIG_TOUCHSCREEN_ANDROID_VIRTUALKEYS
+short virtual_down = 0;
+#endif
+
+void report_virtual_key(struct input_dev *input_dev, int position, int state) {
+#ifdef CONFIG_TOUCHSCREEN_ANDROID_VIRTUALKEYS
+	/* Ugly hack. Report a fixed coordinate for 
+	 * each button: It doesn't really matter, as
+	 * long as it falls within the board-defined
+	 * map*/
+	if (state && position <=3) {
+		touchkey_pressed(position);
+		input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR, 40);
+		input_report_abs(input_dev, ABS_MT_WIDTH_MAJOR, 4);
+		input_report_abs(input_dev, ABS_MT_POSITION_X, ((position+1)*280)-140);
+		input_report_abs(input_dev, ABS_MT_POSITION_Y, 1944);
+		virtual_down = 1;
+	} else {
+		virtual_down = 0;
+		input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR, 0);
+	}
+	input_report_key(input_dev, BTN_TOUCH, virtual_down);
+	input_mt_sync(input_dev);
+	input_sync(input_dev);
+#else
+	input_report_key(input_dev, button_map[position], state);
+#endif
+}
+
 
 static void synaptics_ts_work_func(struct work_struct *work)
 {
@@ -692,36 +726,20 @@ do{
 					         pressed++;
 					 }
 #endif
-#ifdef CONFIG_TOUCHSCREEN_ANDROID_VIRTUALKEYS
-					 curr_event_type = TOUCH_EVENT_ABS;
-#else
 					if((curr_ts_data.Y_position[i] < SYNAPTICS_PANEL_LCD_MAX_Y && prev_event_type == TOUCH_EVENT_NULL) || prev_event_type == TOUCH_EVENT_ABS)
 						curr_event_type = TOUCH_EVENT_ABS;
 					else if((curr_ts_data.Y_position[i] >= SYNAPTICS_PANEL_LCD_MAX_Y && prev_event_type == TOUCH_EVENT_NULL) || prev_event_type == TOUCH_EVENT_BUTTON)
 						curr_event_type = TOUCH_EVENT_BUTTON;
-#endif
 
 					if(curr_event_type == TOUCH_EVENT_ABS)
 					{
-#ifndef CONFIG_TOUCHSCREEN_ANDROID_VIRTUALKEYS
 						if(curr_ts_data.Y_position[i] < SYNAPTICS_PANEL_LCD_MAX_Y)
-#endif
 						{
-#ifdef CONFIG_TOUCHSCREEN_ANDROID_VIRTUALKEYS
-                                                                        if(curr_ts_data.Y_position[i] >= SYNAPTICS_PANEL_LCD_MAX_Y) {
-										touchkey_pressed((int)((curr_ts_data.X_position[i]*4)/SYNAPTICS_PANEL_MAX_X));
-                                                                                if (!prev_ts_data.touch_status[i]) {
-                                                                                        timeout_jiffies = jiffies + msecs_to_jiffies(300);
-                                                                                } else if (time_is_after_eq_jiffies(timeout_jiffies)) {
-                                                                                        input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
-                                                                                        input_mt_sync(ts->input_dev);
-                                                                                }
-                                                                        }
-#endif
 							input_report_abs(ts->input_dev, ABS_MT_POSITION_X, curr_ts_data.X_position[i]);
 							input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, curr_ts_data.Y_position[i]);
 							input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, curr_ts_data.pressure[i]);
 							input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, curr_ts_data.width[i]);
+							input_report_key(ts->input_dev, BTN_TOUCH, curr_ts_data.width[i] ? 1 : 0);
 							
 							input_mt_sync(ts->input_dev);
 							pr_debug("[TOUCH-1] (X, Y) = (%d, %d), z = %d, w = %d\n", curr_ts_data.X_position[i], curr_ts_data.Y_position[i], curr_ts_data.pressure[i], curr_ts_data.width[i]);
@@ -735,19 +753,19 @@ do{
 							{
 								if(!prev_ts_data.touch_status[i])
 								{
-									input_report_key(ts->input_dev, KEY_MENU, 1); //seven blocked for key drag action
+									report_virtual_key(ts->input_dev, KEYIDX_MENU, 1); //seven blocked for key drag action
 									pr_debug("[TOUCH-2] Key Event KEY = %d, PRESS = %d\n", KEY_MENU, 1);
-									pressed_button_type = KEY_MENU;
+									pressed_button_type = KEYIDX_MENU;
 								}
 								else
 								{
-									if(pressed_button_type != KEY_MENU && pressed_button_type != KEY_REJECT)
+									if(pressed_button_type != KEYIDX_MENU && pressed_button_type != KEY_REJECT)
 									{
 										input_report_key(ts->input_dev, KEY_REJECT, 1);
 										pr_debug("[TOUCH-3] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 1);
 										input_report_key(ts->input_dev, KEY_REJECT, 0);
 										pr_debug("[TOUCH] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 0);
-										input_report_key(ts->input_dev, pressed_button_type, 0);
+										report_virtual_key(ts->input_dev, pressed_button_type, 0);
 										pr_debug("[TOUCH-4] Key Event KEY = %d, PRESS = %d\n", pressed_button_type, 0);
 										pressed_button_type = KEY_REJECT;
 									}
@@ -757,19 +775,19 @@ do{
 							{
 								if(!prev_ts_data.touch_status[i])
 								{
-									input_report_key(ts->input_dev, KEY_HOME, 1); //seven blocked for key drag action
+									report_virtual_key(ts->input_dev, KEYIDX_HOME, 1); //seven blocked for key drag action
 									pr_debug("[TOUCH-5] Key Event KEY = %d, PRESS = %d\n", KEY_HOME, 1);
-									pressed_button_type = KEY_HOME;
+									pressed_button_type = KEYIDX_HOME;
 								}
 								else
 								{
-									if(pressed_button_type != KEY_HOME && pressed_button_type != KEY_REJECT)
+									if(pressed_button_type != KEYIDX_HOME && pressed_button_type != KEY_REJECT)
 									{
 										input_report_key(ts->input_dev, KEY_REJECT, 1);
 										pr_debug("[TOUCH-6] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 1);
 										input_report_key(ts->input_dev, KEY_REJECT, 0);
 										pr_debug("[TOUCH-6] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 0);
-										input_report_key(ts->input_dev, pressed_button_type, 0);
+										report_virtual_key(ts->input_dev, pressed_button_type, 0);
 										pr_debug("[TOUCH-8] Key Event KEY = %d, PRESS = %d\n", pressed_button_type, 0);
 										pressed_button_type = KEY_REJECT;
 									}
@@ -779,19 +797,19 @@ do{
 							{
 								if(!prev_ts_data.touch_status[i])
 								{
-									input_report_key(ts->input_dev, KEY_BACK, 1); //seven blocked for key drag action
+									report_virtual_key(ts->input_dev, KEYIDX_BACK, 1); //seven blocked for key drag action
 									pr_debug("[TOUCH-9] Key Event KEY = %d, PRESS = %d\n", KEY_BACK, 1);
-									pressed_button_type = KEY_BACK;
+									pressed_button_type = KEYIDX_BACK;
 								}
 								else
 								{
-									if(pressed_button_type != KEY_BACK && pressed_button_type != KEY_REJECT)
+									if(pressed_button_type != KEYIDX_BACK && pressed_button_type != KEY_REJECT)
 									{
 										input_report_key(ts->input_dev, KEY_REJECT, 1);
 										pr_debug("[TOUCH-10] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 1);
 										input_report_key(ts->input_dev, KEY_REJECT, 0);
 										pr_debug("[TOUCH-11] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 0);
-										input_report_key(ts->input_dev, pressed_button_type, 0);
+										report_virtual_key(ts->input_dev, pressed_button_type, 0);
 										pr_debug("[TOUCH-12] Key Event KEY = %d, PRESS = %d\n", pressed_button_type, 0);
 										pressed_button_type = KEY_REJECT;
 									}
@@ -801,19 +819,19 @@ do{
 							{
 								if(!prev_ts_data.touch_status[i])
 								{
-									input_report_key(ts->input_dev, KEY_SEARCH, 1); //seven blocked for key drag action
+									report_virtual_key(ts->input_dev, KEYIDX_SEARCH, 1); //seven blocked for key drag action
 									pr_debug("[TOUCH-13] Key Event KEY = %d, PRESS = %d\n", KEY_SEARCH, 1);
-									pressed_button_type = KEY_SEARCH;
+									pressed_button_type = KEYIDX_SEARCH;
 								}
 								else
 								{
-									if(pressed_button_type != KEY_SEARCH && pressed_button_type != KEY_REJECT)
+									if(pressed_button_type != KEYIDX_SEARCH && pressed_button_type != KEY_REJECT)
 									{
 										input_report_key(ts->input_dev, KEY_REJECT, 1);
 										pr_debug("[TOUCH-14] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 1);
 										input_report_key(ts->input_dev, KEY_REJECT, 0);
 										pr_debug("[TOUCH-15] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 0);
-										input_report_key(ts->input_dev, pressed_button_type, 0);
+										report_virtual_key(ts->input_dev, pressed_button_type, 0);
 										pr_debug("[TOUCH-16] Key Event KEY = %d, PRESS = %d\n", pressed_button_type, 0);
 										pressed_button_type = KEY_REJECT;
 									}
@@ -833,7 +851,7 @@ do{
 										pr_debug("[TOUCH-17] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 1);
 										input_report_key(ts->input_dev, KEY_REJECT, 0);
 										pr_debug("[TOUCH-18] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 0);
-										input_report_key(ts->input_dev, pressed_button_type, 0);
+										report_virtual_key(ts->input_dev, pressed_button_type, 0);
 										pr_debug("[TOUCH-19] Key Event KEY = %d, PRESS = %d\n", pressed_button_type, 0);
 										pressed_button_type = KEY_REJECT;
 									}
@@ -855,7 +873,7 @@ do{
 									pr_debug("[TOUCH-20] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 1);
 									input_report_key(ts->input_dev, KEY_REJECT, 0);
 									pr_debug("[TOUCH-21] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 0);
-									input_report_key(ts->input_dev, pressed_button_type, 0);
+									report_virtual_key(ts->input_dev, pressed_button_type, 0);
 									pr_debug("[TOUCH-22] Key Event KEY = %d, PRESS = %d\n", pressed_button_type, 0);
 									pressed_button_type = KEY_REJECT;
 								}
@@ -866,6 +884,7 @@ do{
 								input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, curr_ts_data.Y_position[i]);
 								input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, curr_ts_data.pressure[i]);
 								input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, curr_ts_data.width[i]);
+								input_report_key(ts->input_dev, BTN_TOUCH, curr_ts_data.width[i] ? 1 : 0);
 								
 								input_mt_sync(ts->input_dev);
 								pr_debug("[TOUCH-23] (X, Y) = (%d, %d), z = %d, w = %d\n", curr_ts_data.X_position[i], curr_ts_data.Y_position[i], curr_ts_data.pressure[i], curr_ts_data.width[i]);
@@ -891,7 +910,7 @@ do{
 						pr_debug("[TOUCH-24] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 1);
 						input_report_key(ts->input_dev, KEY_REJECT, 0);
 						pr_debug("[TOUCH-25] Key Event KEY = %d, PRESS = %d\n", KEY_REJECT, 0);
-						input_report_key(ts->input_dev, pressed_button_type, 0);
+						report_virtual_key(ts->input_dev, pressed_button_type, 0);
 						pr_debug("[TOUCH-26] Key Event KEY = %d, PRESS = %d\n", pressed_button_type, 0);
 						pressed_button_type = KEY_REJECT;
 					}
@@ -902,6 +921,7 @@ do{
 						input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, curr_ts_data.Y_position[i]);
 						input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, curr_ts_data.pressure[i]);
 						input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, curr_ts_data.width[i]);
+						input_report_key(ts->input_dev, BTN_TOUCH, curr_ts_data.width[i] ? 1 : 0);
 
 						input_mt_sync(ts->input_dev);
 
@@ -920,7 +940,7 @@ do{
 			{
 				if(pressed_button_type != KEY_REJECT && i == 0)
 				{					
-					input_report_key(ts->input_dev, pressed_button_type, 0);
+					report_virtual_key(ts->input_dev, pressed_button_type, 0);
                                         
 					if (system_rev >= 3)
 					{
@@ -1018,7 +1038,8 @@ do{
 
 	}
 
-	input_mt_sync(ts->input_dev);
+	if (!virtual_down)
+		input_mt_sync(ts->input_dev);
 	input_sync(ts->input_dev);
 
 }while(Synaptics_Check_Touch_Interrupt_Status());
