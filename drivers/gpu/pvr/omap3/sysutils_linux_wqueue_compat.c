@@ -81,7 +81,7 @@ static IMG_VOID PowerLockUnwrap(SYS_SPECIFIC_DATA *psSysSpecData)
 	}
 }
 
-PVRSRV_ERROR SysPowerLockWrap(IMG_VOID)
+PVRSRV_ERROR SysPowerLockWrap(IMG_BOOL bTryLock)
 {
 	SYS_DATA	*psSysData;
 
