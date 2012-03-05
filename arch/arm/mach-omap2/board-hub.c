@@ -36,6 +36,8 @@
 #include "sdram-hynix-h8mbx00u0mer-0em.h"
 #include "smartreflex-class1p5.h"
 #include "pm.h"
+#include <linux/memblock.h>
+#include "omap_ion.h"
 
 /* LGE_CHANGE_S, [younggil.lee@lge.com], 2011-05-04, <add Setting enable Wifi Host wakeup> */
 #include "board-hub-wifi.h"
@@ -288,6 +290,7 @@ static void __init omap_hub_init(void)
 #endif
 	omap_voltage_init_vc(&vc_config);
 #endif
+	omap_register_ion();
 }
 
 /* must be called after omap2_common_pm_init() */
@@ -367,12 +370,23 @@ static int __init hub_opp_init(void)
 }
 device_initcall(hub_opp_init);
 
+static void __init hub_reserve(void)
+{
+       /* do the static reservations first */
+       memblock_remove(PHYS_ADDR_SMC_MEM, PHYS_ADDR_SMC_SIZE);
+
+#ifdef CONFIG_ION_OMAP
+       omap_ion_init();
+#endif
+       omap_reserve();
+}
+
 MACHINE_START(LGE_HUB, "LGE Sniper board")
 	.phys_io	= 0x48000000, /* L4_34XX_PHYS */
 	.io_pg_offst	= ((0xfa000000 /* L4_34XX_VIRT */) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap_hub_map_io,
-        .reserve        = omap_reserve,
+        .reserve        = hub_reserve,
 	.init_irq	= omap_hub_init_irq,
 	.init_machine	= omap_hub_init,
 	.timer		= &omap_timer,

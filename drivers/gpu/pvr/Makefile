@@ -136,6 +136,8 @@ sgx-y :=  \
 	sgx/mmu.o \
 	sgx/pb.o
 
+pvr530-$(CONFIG_ION_OMAP) += ion.o
+
 sgx_displayclass-y := \
 	display/omap_sgx_displayclass.o \
 	display/omap_display.o
