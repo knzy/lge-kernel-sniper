@@ -22,18 +22,20 @@
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
  * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
  *
- *****************************************************************************/
+ ******************************************************************************/
 
-#ifndef __IMG_LINUX_ION_H__
-#define __IMG_LINUX_ION_H__
+#if !defined(__SYSINFO_H__)
+#define __SYSINFO_H__
 
-#include <linux/ion.h>
-#include <linux/omap_ion.h>
+#if defined(PVR_LINUX_USING_WORKQUEUES)
+#define MAX_HW_TIME_US				(1000000)
+#define WAIT_TRY_COUNT				(20000)
+#else
+#define MAX_HW_TIME_US				(500000)
+#define WAIT_TRY_COUNT				(10000)
+#endif
 
-void PVRSRVExportFDToIONHandles(int fd, struct ion_client **client,
-								struct ion_handle *handles[2]);
 
-struct ion_handle *PVRSRVExportFDToIONHandle(int fd,
-											 struct ion_client **client);
+#define SYS_DEVICE_COUNT 15 
 
-#endif /* __IMG_LINUX_ION_H__ */
+#endif	

@@ -2071,6 +2071,10 @@ IMG_BOOL PVRGetDisplayClassJTable(PVRSRV_DC_DISP2SRV_KMJTABLE *psJTable)
 #if defined(SUPPORT_CUSTOM_SWAP_OPERATIONS)
 	psJTable->pfnPVRSRVFreeCmdCompletePacket = &PVRSRVFreeCommandCompletePacketKM;
 #endif
+	psJTable->pfnPVRSRVDCMemInfoGetCpuVAddr = &PVRSRVDCMemInfoGetCpuVAddr;
+	psJTable->pfnPVRSRVDCMemInfoGetCpuPAddr = &PVRSRVDCMemInfoGetCpuPAddr;
+	psJTable->pfnPVRSRVDCMemInfoGetByteSize = &PVRSRVDCMemInfoGetByteSize;
+	psJTable->pfnPVRSRVDCMemInfoIsPhysContig = &PVRSRVDCMemInfoIsPhysContig;
 	return IMG_TRUE;
 }
 

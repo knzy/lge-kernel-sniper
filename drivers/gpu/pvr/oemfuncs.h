@@ -22,18 +22,35 @@
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
  * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
  *
- *****************************************************************************/
+ ******************************************************************************/
 
-#ifndef __IMG_LINUX_ION_H__
-#define __IMG_LINUX_ION_H__
+#if !defined(__OEMFUNCS_H__)
+#define __OEMFUNCS_H__
 
-#include <linux/ion.h>
-#include <linux/omap_ion.h>
+#if defined (__cplusplus)
+extern "C" {
+#endif
 
-void PVRSRVExportFDToIONHandles(int fd, struct ion_client **client,
-								struct ion_handle *handles[2]);
+typedef IMG_UINT32   (*PFN_SRV_BRIDGEDISPATCH)( IMG_UINT32  Ioctl,
+												IMG_BYTE   *pInBuf,
+												IMG_UINT32  InBufLen, 
+											    IMG_BYTE   *pOutBuf,
+												IMG_UINT32  OutBufLen,
+												IMG_UINT32 *pdwBytesTransferred);
+typedef struct PVRSRV_DC_OEM_JTABLE_TAG
+{
+	PFN_SRV_BRIDGEDISPATCH			pfnOEMBridgeDispatch;
+	IMG_PVOID						pvDummy1;
+	IMG_PVOID						pvDummy2;
+	IMG_PVOID						pvDummy3;
 
-struct ion_handle *PVRSRVExportFDToIONHandle(int fd,
-											 struct ion_client **client);
+} PVRSRV_DC_OEM_JTABLE;
 
-#endif /* __IMG_LINUX_ION_H__ */
+#define OEM_GET_EXT_FUNCS			(1<<1)
+
+#if defined(__cplusplus)
+}
+#endif
+
+#endif	
+

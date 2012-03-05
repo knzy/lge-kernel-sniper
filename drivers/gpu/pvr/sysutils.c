@@ -22,18 +22,10 @@
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
  * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
  *
- *****************************************************************************/
+ ******************************************************************************/
 
-#ifndef __IMG_LINUX_ION_H__
-#define __IMG_LINUX_ION_H__
+#if defined(__linux__)
+#include "sysutils_linux.c"
+#endif
 
-#include <linux/ion.h>
-#include <linux/omap_ion.h>
 
-void PVRSRVExportFDToIONHandles(int fd, struct ion_client **client,
-								struct ion_handle *handles[2]);
-
-struct ion_handle *PVRSRVExportFDToIONHandle(int fd,
-											 struct ion_client **client);
-
-#endif /* __IMG_LINUX_ION_H__ */
